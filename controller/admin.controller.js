@@ -1,4 +1,5 @@
 import pool from '../config/db.js';
+import { getDistanceFromLatLonInKm } from '../utils/geolocation.js';
 
 // @desc    Get all users
 // @route   GET /api/v1/admin/users
@@ -87,28 +88,42 @@ export const getAidTypeSummary = async (req, res) => {
     }
 };
 
-// @desc    Find donor resources that match a specific aid request
+// @desc    Find donor resources that match a specific aid request by type and location
 // @route   GET /api/v1/admin/requests/:id/matches
 // @access  Private (Admin)
 export const findMatchingResources = async (req, res) => {
     try {
         const { id } = req.params;
+        const radius = req.query.radius || 50; // Default radius of 50km
 
-        // First, get the aid type of the request
-        const requestResult = await pool.query('SELECT aid_type FROM aid_requests WHERE id = $1', [id]);
+        // First, get the aid request details (type and location)
+        const requestResult = await pool.query('SELECT aid_type, latitude, longitude FROM aid_requests WHERE id = $1', [id]);
 
         if (requestResult.rows.length === 0) {
             return res.status(404).json({ status: 'fail', message: 'No aid request found with that ID' });
         }
-        const { aid_type } = requestResult.rows[0];
+        const { aid_type, latitude: reqLat, longitude: reqLon } = requestResult.rows[0];
 
-        // Now, find all resources of that type
-        const { rows } = await pool.query('SELECT * FROM resources WHERE resource_type = $1', [aid_type]);
+        if (!reqLat || !reqLon) {
+            return res.status(400).json({ status: 'fail', message: 'The selected aid request does not have location data.' });
+        }
+
+        // Now, find all resources of the same type
+        const resourceResult = await pool.query('SELECT * FROM resources WHERE resource_type = $1', [aid_type]);
+
+        // Filter those resources by distance
+        const nearbyResources = resourceResult.rows.filter(resource => {
+            if (resource.latitude && resource.longitude) {
+                const distance = getDistanceFromLatLonInKm(reqLat, reqLon, resource.latitude, resource.longitude);
+                return distance <= radius;
+            }
+            return false;
+        });
 
         res.status(200).json({
             status: 'success',
-            count: rows.length,
-            data: rows,
+            count: nearbyResources.length,
+            data: nearbyResources,
         });
     } catch (err) {
         res.status(500).json({ status: 'error', message: 'Server Error' });

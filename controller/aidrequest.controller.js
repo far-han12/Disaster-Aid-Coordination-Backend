@@ -1,4 +1,5 @@
 import pool from '../config/db.js';
+import { getDistanceFromLatLonInKm } from '../utils/geolocation.js';
 
 // @desc    Get all aid requests with filtering and sorting
 // @route   GET /api/v1/requests
@@ -41,7 +42,20 @@ export const getAidRequests = async (req, res) => {
         
         query += orderBy;
 
-        const { rows } = await pool.query(query, queryParams);
+        let { rows } = await pool.query(query, queryParams);
+
+        // Geo-based filtering (after fetching from DB)
+        const { latitude, longitude, radius } = req.query;
+        if (latitude && longitude && radius) {
+            rows = rows.filter(request => {
+                if (request.latitude && request.longitude) {
+                    const distance = getDistanceFromLatLonInKm(latitude, longitude, request.latitude, request.longitude);
+                    return distance <= radius;
+                }
+                return false;
+            });
+        }
+
         res.status(200).json({ status: 'success', count: rows.length, data: rows });
     } catch (err) {
         res.status(500).json({ status: 'error', message: 'Server Error' });
@@ -65,6 +79,9 @@ export const getMyRequests = async (req, res) => {
     }
 };
 
+// @desc    Create an aid request
+// @route   POST /api/v1/requests
+// @access  Private (Aid Requester)
 export const createAidRequest = async (req, res) => {
     const { aid_type, urgency, latitude, longitude } = req.body;
     const requester_id = req.user.id;

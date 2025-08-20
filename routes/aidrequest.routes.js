@@ -9,6 +9,6 @@ router.get('/my-requests', protect, restrictTo('aidrequester'), getMyRequests);
 
 router.route('/')
     .get(getAidRequests)
-    .post(protect, restrictTo('aid_requester'), createAidRequest);
+    .post(protect, restrictTo('aidrequester'), createAidRequest);
 
 export default router;

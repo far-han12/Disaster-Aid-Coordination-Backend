@@ -4,7 +4,10 @@ import {
     deleteUser, 
     updateUserRole,
     getAidTypeSummary,
-    findMatchingResources
+       updateRequestUrgency,
+    findMatchingResources, deleteAidRequest, getAllResources,
+    updateResourceByAdmin,
+    deleteResourceByAdmin
 } from '../controller/admin.controller.js';
 import { protect, restrictTo } from '../middlewares/auth.middleware.js';
 
@@ -20,10 +23,18 @@ router.route('/users')
 router.route('/users/:id')
     .patch(updateUserRole)
     .delete(deleteUser);
-
-// Analytics and Matching routes
 router.get('/analytics/summary', getAidTypeSummary);
 router.get('/requests/:id/matches', findMatchingResources);
 
+// New route to update request urgency
+router.patch('/requests/:id/urgency', updateRequestUrgency);
+
+router.delete('/requests/:id', deleteAidRequest);
+router.route('/resources')
+    .get(getAllResources);
+
+router.route('/resources/:id')
+    .patch(updateResourceByAdmin)
+    .delete(deleteResourceByAdmin);
 
 export default router;

@@ -10,6 +10,7 @@ import { createAidRequestTable } from "./models/aidrequest.model.js";
 import { createResourceTable } from "./models/resource.model.js";
 import { createAssignmentsTable } from "./models/assignment.model.js";
 import mainRouter from './routes/index.js';
+import { createMatchesTable } from "./models/matches.model.js"; // 1. Import the new function
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -43,4 +44,5 @@ app.listen(PORT, async () => {
   await createAidRequestTable();
   await createResourceTable();
   await createAssignmentsTable();
+    await createMatchesTable(); 
 });

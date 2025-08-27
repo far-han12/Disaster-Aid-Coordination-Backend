@@ -6,7 +6,23 @@ import { getDistanceFromLatLonInKm } from '../utils/geolocation.js';
 // @access  Private (Admin)
 export const getAllUsers = async (req, res) => {
     try {
-        const { rows } = await pool.query('SELECT id, email, role FROM users ORDER BY id ASC');
+        const { search } = req.query;
+
+        let query = `
+            SELECT u.id, u.email, u.role, c.first_name, c.last_name
+            FROM users u
+            LEFT JOIN contact_info c ON u.id = c.user_id
+        `;
+        const queryParams = [];
+
+        if (search) {
+            query += ` WHERE u.email ILIKE $1 OR c.first_name ILIKE $1 OR c.last_name ILIKE $1`;
+            queryParams.push(`%${search}%`);
+        }
+
+        query += ' ORDER BY u.id ASC';
+
+        const { rows } = await pool.query(query, queryParams);
         res.status(200).json({
             status: 'success',
             count: rows.length,
@@ -127,5 +143,107 @@ export const findMatchingResources = async (req, res) => {
         });
     } catch (err) {
         res.status(500).json({ status: 'error', message: 'Server Error' });
+    }
+};
+// ... other imports
+
+// ... getAllUsers, updateUserRole, deleteUser, getAidTypeSummary, findMatchingResources functions ...
+
+// @desc    Update the urgency of an aid request
+// @route   PATCH /api/v1/admin/requests/:id/urgency
+// @access  Private (Admin)
+export const updateRequestUrgency = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { urgency } = req.body;
+
+        if (!urgency || !['low', 'medium', 'high'].includes(urgency)) {
+            return res.status(400).json({ status: 'fail', message: 'Please provide a valid urgency level (low, medium, high).' });
+        }
+
+        const { rows } = await pool.query(
+            'UPDATE aid_requests SET urgency = $1 WHERE id = $2 RETURNING *',
+            [urgency, id]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({ status: 'fail', message: 'No aid request found with that ID' });
+        }
+
+        res.status(200).json({
+            status: 'success',
+            data: rows[0],
+        });
+    } catch (err) {
+        res.status(500).json({ status: 'error', message: 'Server Error' });
+    }
+};
+export const deleteAidRequest = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query('DELETE FROM aid_requests WHERE id = $1', [id]);
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ status: 'fail', message: 'No aid request found with that ID' });
+        }
+
+        res.status(204).json({
+            status: 'success',
+            data: null,
+        });
+    } catch (err) {
+        res.status(500).json({ status: 'error', message: 'Server Error' });
+    }
+};
+export const getAllResources = async (req, res) => {
+    try {
+        const { search } = req.query;
+        let query = `
+            SELECT r.*, c.first_name, c.last_name, u.email
+            FROM resources r
+            JOIN users u ON r.donor_id = u.id
+            JOIN contact_info c ON u.id = c.user_id
+        `;
+        const queryParams = [];
+        if (search) {
+            query += ` WHERE c.first_name ILIKE $1 OR c.last_name ILIKE $1 OR u.email ILIKE $1 OR r.resource_type ILIKE $1`;
+            queryParams.push(`%${search}%`);
+        }
+        const { rows } = await pool.query(query, queryParams);
+        res.status(200).json({ status: 'success', data: rows });
+    } catch (err) {
+        res.status(500).json({ status: 'error', message: err.message });
+    }
+};
+
+// @desc    Admin: Update a resource
+// @route   PATCH /api/v1/admin/resources/:id
+// @access  Private (Admin)
+export const updateResourceByAdmin = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { resource_type, quantity } = req.body;
+        const { rows } = await pool.query(
+            'UPDATE resources SET resource_type = $1, quantity = $2 WHERE id = $3 RETURNING *',
+            [resource_type, quantity, id]
+        );
+        if (rows.length === 0) return res.status(404).json({ status: 'fail', message: 'Resource not found.' });
+        res.status(200).json({ status: 'success', data: rows[0] });
+    } catch (err) {
+        res.status(500).json({ status: 'error', message: err.message });
+    }
+};
+
+// @desc    Admin: Delete a resource
+// @route   DELETE /api/v1/admin/resources/:id
+// @access  Private (Admin)
+export const deleteResourceByAdmin = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query('DELETE FROM resources WHERE id = $1', [id]);
+        if (result.rowCount === 0) return res.status(404).json({ status: 'fail', message: 'Resource not found.' });
+        res.status(204).json({ status: 'success', data: null });
+    } catch (err) {
+        res.status(500).json({ status: 'error', message: err.message });
     }
 };

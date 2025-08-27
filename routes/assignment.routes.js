@@ -1,13 +1,13 @@
 import express from 'express';
-import { assignVolunteerToRequest } from '../controller/assignment.controller.js';
+import { assignVolunteerToRequest, getMyAssignments } from '../controller/assignment.controller.js';
 import { protect, restrictTo } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
-// All routes here are protected and restricted to admins
-router.use(protect, restrictTo('admin'));
+// Route for admins to create an assignment
+router.post('/', protect, restrictTo('admin'), assignVolunteerToRequest);
 
-router.route('/')
-    .post(assignVolunteerToRequest);
+// Route for volunteers to get their assignments
+router.get('/my-assignments', protect, restrictTo('volunteer'), getMyAssignments);
 
 export default router;

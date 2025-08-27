@@ -7,7 +7,7 @@ import {
        updateRequestUrgency,
     findMatchingResources, deleteAidRequest, getAllResources,
     updateResourceByAdmin,
-    deleteResourceByAdmin
+    deleteResourceByAdmin,getPlatformStats,updateAidRequestByAdmin
 } from '../controller/admin.controller.js';
 import { protect, restrictTo } from '../middlewares/auth.middleware.js';
 
@@ -36,5 +36,8 @@ router.route('/resources')
 router.route('/resources/:id')
     .patch(updateResourceByAdmin)
     .delete(deleteResourceByAdmin);
-
+router.get('/stats', getPlatformStats);
+router.route('/requests/:id')
+    .patch(updateAidRequestByAdmin)
+    .delete(deleteAidRequest);
 export default router;

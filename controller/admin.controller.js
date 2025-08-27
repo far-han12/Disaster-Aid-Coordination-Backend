@@ -247,3 +247,51 @@ export const deleteResourceByAdmin = async (req, res) => {
         res.status(500).json({ status: 'error', message: err.message });
     }
 };
+// @desc    Get platform-wide statistics
+// @route   GET /api/v1/admin/stats
+// @access  Private (Admin)
+export const getPlatformStats = async (req, res) => {
+    try {
+       const statsQuery = `
+            SELECT 
+                (SELECT COUNT(*) FROM users) AS total_users,
+                (SELECT COUNT(*) FROM aid_requests) AS total_requests,
+                (SELECT COUNT(*) FROM resources) AS total_resources,
+                (SELECT COUNT(*) FROM matches WHERE status = 'pending') AS pending_matches,
+                (SELECT json_agg(t) FROM (
+                    SELECT aid_type, COUNT(*) as count 
+                    FROM aid_requests 
+                    GROUP BY aid_type 
+                    ORDER BY count DESC 
+                    LIMIT 5
+                ) t) as top_requests,
+                -- ADD THIS NEW PART --
+                (SELECT json_agg(s) FROM (
+                    SELECT status, COUNT(*) as count
+                    FROM aid_requests
+                    GROUP BY status
+                ) s) as status_breakdown;
+        `;
+        const { rows } = await pool.query(statsQuery);
+        res.status(200).json({ status: 'success', data: rows[0] });
+    } catch (err) {
+        res.status(500).json({ status: 'error', message: err.message });
+    }
+};
+export const updateAidRequestByAdmin = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { aid_type } = req.body;
+        if (!aid_type) {
+            return res.status(400).json({ status: 'fail', message: 'Aid type is required.' });
+        }
+        const { rows } = await pool.query(
+            'UPDATE aid_requests SET aid_type = $1 WHERE id = $2 RETURNING *',
+            [aid_type, id]
+        );
+        if (rows.length === 0) return res.status(404).json({ status: 'fail', message: 'Aid request not found.' });
+        res.status(200).json({ status: 'success', data: rows[0] });
+    } catch (err) {
+        res.status(500).json({ status: 'error', message: err.message });
+    }
+};

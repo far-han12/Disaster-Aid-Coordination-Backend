@@ -1,14 +1,28 @@
 import express from 'express';
-import { getAidRequests, createAidRequest, getMyRequests } from '../controller/aidrequest.controller.js';
+import { 
+    getAidRequests, 
+    createAidRequest, 
+    getMyRequests,
+    updateAidRequest,
+    deleteAidRequest
+} from '../controller/aidrequest.controller.js';
 import { protect, restrictTo } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
-// New route for requesters to get their own requests
+// This route is public for donors and admins to see
+router.get('/', getAidRequests);
+
+
+// --- All routes below are protected and require the user to be an 'aidrequester' ---
+
+// The role has been corrected from 'aidrequester' to 'aidrequester'
+router.post('/', protect, restrictTo('aidrequester'), createAidRequest);
+
 router.get('/my-requests', protect, restrictTo('aidrequester'), getMyRequests);
 
-router.route('/')
-    .get(getAidRequests)
-    .post(protect, restrictTo('aidrequester'), createAidRequest);
+router.route('/:id')
+    .patch(protect, restrictTo('aidrequester'), updateAidRequest)
+    .delete(protect, protect,  restrictTo('aidrequester'), deleteAidRequest);
 
 export default router;

@@ -4,14 +4,11 @@ import { getDistanceFromLatLonInKm } from '../utils/geolocation.js';
 // @desc    Get all aid requests with filtering and sorting
 // @route   GET /api/v1/requests
 // @access  Public
-// @desc    Get all aid requests with filtering and sorting
-// @route   GET /api/v1/requests
-// @access  Public
 export const getAidRequests = async (req, res) => {
     try {
         const { urgency, status, type, search } = req.query;
         let query = `
-            SELECT ar.*, ci.first_name, ci.last_name, u.email
+            SELECT ar.*, ci.first_name, ci.last_name, u.email, ci.city
             FROM aid_requests ar
             JOIN users u ON ar.requester_id = u.id
             JOIN contact_info ci ON u.id = ci.user_id
@@ -20,7 +17,7 @@ export const getAidRequests = async (req, res) => {
         const queryParams = [];
         let paramIndex = 1;
 
-        if (urgency) {
+        if (urgency && urgency !== 'all') {
             whereClauses.push(`ar.urgency = $${paramIndex++}`);
             queryParams.push(urgency);
         }
@@ -41,13 +38,27 @@ export const getAidRequests = async (req, res) => {
         if (whereClauses.length > 0) {
             query += ' WHERE ' + whereClauses.join(' AND ');
         }
+        
+        let { rows } = await pool.query(query, queryParams);
+        
+        // Geo-based filtering (after fetching from DB)
+        const { latitude, longitude, radius } = req.query;
+        if (latitude && longitude && radius) {
+            rows = rows.filter(request => {
+                if (request.latitude && request.longitude) {
+                    const distance = getDistanceFromLatLonInKm(latitude, longitude, request.latitude, request.longitude);
+                    return distance <= radius;
+                }
+                return false;
+            });
+        }
 
-        const { rows } = await pool.query(query, queryParams);
         res.status(200).json({ status: 'success', data: rows });
     } catch (err) {
         res.status(500).json({ status: 'error', message: 'Server Error' });
     }
 };
+
 // @desc    Get all requests for the logged-in user
 // @route   GET /api/v1/requests/my-requests
 // @access  Private (Requester)
@@ -78,6 +89,60 @@ export const createAidRequest = async (req, res) => {
             [requester_id, aid_type, urgency, latitude, longitude]
         );
         res.status(201).json({ status: 'success', data: rows[0] });
+    } catch (err) {
+        res.status(500).json({ status: 'error', message: err.message });
+    }
+};
+
+// @desc    Update an aid request
+// @route   PATCH /api/v1/requests/:id
+// @access  Private (Requester - owner only)
+export const updateAidRequest = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { aid_type, urgency } = req.body;
+        const requesterId = req.user.id;
+
+        // Security Check: Verify the user owns this request before updating
+        const ownerCheck = await pool.query('SELECT requester_id FROM aid_requests WHERE id = $1', [id]);
+        if (ownerCheck.rows.length === 0) {
+            return res.status(404).json({ status: 'fail', message: 'Aid request not found.' });
+        }
+        if (ownerCheck.rows[0].requester_id !== requesterId) {
+            return res.status(403).json({ status: 'fail', message: 'You are not authorized to update this request.' });
+        }
+
+        const { rows } = await pool.query(
+            'UPDATE aid_requests SET aid_type = $1, urgency = $2 WHERE id = $3 RETURNING *',
+            [aid_type, urgency, id]
+        );
+
+        res.status(200).json({ status: 'success', data: rows[0] });
+    } catch (err) {
+        res.status(500).json({ status: 'error', message: err.message });
+    }
+};
+
+// @desc    Delete an aid request
+// @route   DELETE /api/v1/requests/:id
+// @access  Private (Requester - owner only)
+export const deleteAidRequest = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const requesterId = req.user.id;
+
+        // Security Check: Verify ownership before deleting
+        const ownerCheck = await pool.query('SELECT requester_id FROM aid_requests WHERE id = $1', [id]);
+        if (ownerCheck.rows.length === 0) {
+            return res.status(404).json({ status: 'fail', message: 'Aid request not found.' });
+        }
+        if (ownerCheck.rows[0].requester_id !== requesterId) {
+            return res.status(403).json({ status: 'fail', message: 'You are not authorized to delete this request.' });
+        }
+
+        await pool.query('DELETE FROM aid_requests WHERE id = $1', [id]);
+
+        res.status(204).json({ status: 'success', data: null });
     } catch (err) {
         res.status(500).json({ status: 'error', message: err.message });
     }

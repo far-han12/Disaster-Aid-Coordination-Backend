@@ -58,6 +58,10 @@ export const createResource = async (req, res) => {
         res.status(500).json({ status: 'error', message: err.message });
     }
 };
+
+// @desc    Get all resources for the logged-in donor
+// @route   GET /api/v1/resources/my-resources
+// @access  Private (Donor)
 export const getMyResources = async (req, res) => {
     try {
         const donorId = req.user.id;
@@ -69,5 +73,59 @@ export const getMyResources = async (req, res) => {
         });
     } catch (err) {
         res.status(500).json({ status: 'error', message: 'Server Error' });
+    }
+};
+
+// @desc    Update a resource
+// @route   PATCH /api/v1/resources/:id
+// @access  Private (Donor - owner only)
+export const updateResource = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { resource_type, quantity } = req.body;
+        const donorId = req.user.id;
+
+        // Security Check: Verify the user owns this resource before updating
+        const ownerCheck = await pool.query('SELECT donor_id FROM resources WHERE id = $1', [id]);
+        if (ownerCheck.rows.length === 0) {
+            return res.status(404).json({ status: 'fail', message: 'Resource not found.' });
+        }
+        if (ownerCheck.rows[0].donor_id !== donorId) {
+            return res.status(403).json({ status: 'fail', message: 'You are not authorized to update this resource.' });
+        }
+
+        const { rows } = await pool.query(
+            'UPDATE resources SET resource_type = $1, quantity = $2 WHERE id = $3 RETURNING *',
+            [resource_type, quantity, id]
+        );
+
+        res.status(200).json({ status: 'success', data: { resource: rows[0] } });
+    } catch (err) {
+        res.status(500).json({ status: 'error', message: err.message });
+    }
+};
+
+// @desc    Delete a resource
+// @route   DELETE /api/v1/resources/:id
+// @access  Private (Donor - owner only)
+export const deleteResource = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const donorId = req.user.id;
+
+        // Security Check: Verify ownership before deleting
+        const ownerCheck = await pool.query('SELECT donor_id FROM resources WHERE id = $1', [id]);
+        if (ownerCheck.rows.length === 0) {
+            return res.status(404).json({ status: 'fail', message: 'Resource not found.' });
+        }
+        if (ownerCheck.rows[0].donor_id !== donorId) {
+            return res.status(403).json({ status: 'fail', message: 'You are not authorized to delete this resource.' });
+        }
+
+        await pool.query('DELETE FROM resources WHERE id = $1', [id]);
+
+        res.status(204).json({ status: 'success', data: null });
+    } catch (err) {
+        res.status(500).json({ status: 'error', message: err.message });
     }
 };

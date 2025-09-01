@@ -85,7 +85,7 @@ export const markAssignmentAsComplete = async (req, res) => {
 
         // 2. Update the aid_requests table status to 'fulfilled'
         await client.query(
-            "UPDATE aid_requests SET status = 'Completed' WHERE id = $1",
+            "UPDATE aid_requests SET status = 'fulfilled' WHERE id = $1",
             [request_id]
         );
 

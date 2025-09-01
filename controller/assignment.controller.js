@@ -61,3 +61,40 @@ export const getMyAssignments = async (req, res) => {
         res.status(500).json({ status: 'error', message: err.message });
     }
 };
+// @desc    Volunteer marks an assignment as complete
+// @route   PATCH /api/v1/assignments/:id/complete
+// @access  Private (Volunteer)
+export const markAssignmentAsComplete = async (req, res) => {
+    const { id: assignmentId } = req.params;
+    const volunteerId = req.user.id;
+    const client = await pool.connect();
+
+    try {
+        await client.query('BEGIN');
+
+        // 1. Verify that the logged-in volunteer is assigned to this task
+        const assignmentCheck = await client.query(
+            'SELECT request_id FROM assignments WHERE id = $1 AND volunteer_id = $2',
+            [assignmentId, volunteerId]
+        );
+
+        if (assignmentCheck.rows.length === 0) {
+            return res.status(403).json({ status: 'fail', message: 'You are not authorized to complete this task.' });
+        }
+        const { request_id } = assignmentCheck.rows[0];
+
+        // 2. Update the aid_requests table status to 'fulfilled'
+        await client.query(
+            "UPDATE aid_requests SET status = 'Completed' WHERE id = $1",
+            [request_id]
+        );
+
+        await client.query('COMMIT');
+        res.status(200).json({ status: 'success', message: 'Task marked as completed.' });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ status: 'error', message: err.message });
+    } finally {
+        client.release();
+    }
+};

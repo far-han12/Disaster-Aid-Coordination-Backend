@@ -1,13 +1,12 @@
 import pool from '../config/db.js';
 
-// Function to create the resources table
 export const createResourceTable = async () => {
   const query = `
     CREATE TABLE IF NOT EXISTS resources (
       id SERIAL PRIMARY KEY,
       donor_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
       resource_type VARCHAR(100) NOT NULL,
-      quantity INTEGER NOT NULL,
+      quantity INTEGER NOT NULL DEFAULT 1, -- Quantity is the source of truth
       latitude DECIMAL(9,6),
       longitude DECIMAL(9,6)
     );

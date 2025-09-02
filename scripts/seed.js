@@ -1,120 +1,99 @@
 import bcrypt from 'bcryptjs';
-import dotenv from 'dotenv';
 import pool from '../config/db.js';
 
-dotenv.config();
+const usersData = [
+    { email: 'admin@example.com', password: 'password123', role: 'admin' },
+    { email: 'requester1@example.com', password: 'password123', role: 'aidrequester' },
+    { email: 'requester2@example.com', password: 'password123', role: 'aidrequester' },
+    { email: 'donor1@example.com', password: 'password123', role: 'donor' },
+    { email: 'donor2@example.com', password: 'password123', role: 'donor' },
+    { email: 'volunteer1@example.com', password: 'password123', role: 'volunteer' },
+    { email: 'volunteer2@example.com', password: 'password123', role: 'volunteer' },
+];
 
-const seedDatabase = async () => {
-  const client = await pool.connect();
-  try {
-    console.log('Starting to seed the database...');
-    await client.query('BEGIN');
+const contactInfoData = [
+    { email: 'admin@example.com', first_name: 'Admin', last_name: 'User', phone_no: '555-0100', street: '123 Admin Way', city: 'Dhaka', state: 'Dhaka' },
+    { email: 'requester1@example.com', first_name: 'Alice', last_name: 'Smith', phone_no: '555-0101', street: '456 Oak Ave', city: 'Chittagong', state: 'Chittagong' },
+    { email: 'requester2@example.com', first_name: 'Bob', last_name: 'Johnson', phone_no: '555-0102', street: '789 Pine Ln', city: 'Sylhet', state: 'Sylhet' },
+    { email: 'donor1@example.com', first_name: 'Celia', last_name: 'Khan', phone_no: '555-0103', street: '101 Maple Dr', city: 'Dhaka', state: 'Dhaka' },
+    { email: 'donor2@example.com', first_name: 'David', last_name: 'Lee', phone_no: '555-0104', street: '212 Birch Rd', city: 'Dhaka', state: 'Dhaka' },
+    { email: 'volunteer1@example.com', first_name: 'Eva', last_name: 'Chen', phone_no: '555-0105', street: '313 Elm St', city: 'Dhaka', state: 'Dhaka' },
+    { email: 'volunteer2@example.com', first_name: 'Frank', last_name: 'Garcia', phone_no: '555-0106', street: '414 Cedar Ct', city: 'Dhaka', state: 'Dhaka' },
+];
 
-    // Clear existing data to prevent duplicates
-    console.log('Clearing existing data...');
-    await client.query('TRUNCATE TABLE assignments, resources, aid_requests, contact_info, users, matches RESTART IDENTITY CASCADE');
+const aidRequestsData = [
+    { email: 'requester1@example.com', aid_type: 'Clean Water', quantity: 50, urgency: 'high', latitude: 23.777176, longitude: 90.399452 },
+    { email: 'requester2@example.com', aid_type: 'Blankets', quantity: 100, urgency: 'medium', latitude: 24.894930, longitude: 91.868706 },
+    { email: 'requester1@example.com', aid_type: 'Medical Supplies', quantity: 10, urgency: 'high', status: 'assigned', latitude: 22.356852, longitude: 91.783180 },
+];
 
-    // --- 1. Seed Users ---
-    console.log('Seeding users...');
-    const usersData = [
-      { name: 'Admin User', email: 'admin@example.com', password: 'password123', role: 'admin' },
-      { name: 'Aria Rahman', email: 'aria@example.com', password: 'password123', role: 'aidrequester' },
-      { name: 'Benjir Ahmed', email: 'benjir@example.com', password: 'password123', role: 'aidrequester' },
-      { name: 'Celia Khan', email: 'celia@example.com', password: 'password123', role: 'donor' },
-      { name: 'David Lee', email: 'david@example.com', password: 'password123', role: 'volunteer' },
-      { name: 'Eva Islam', email: 'eva@example.com', password: 'password123', role: 'volunteer' },
-    ];
+const resourcesData = [
+    { email: 'donor1@example.com', resource_type: 'Clean Water', quantity: 200, latitude: 23.810331, longitude: 90.412521 },
+    { email: 'donor2@example.com', resource_type: 'Blankets', quantity: 500, latitude: 23.815331, longitude: 90.415521 },
+    { email: 'donor1@example.com', resource_type: 'Medical Supplies', quantity: 30, latitude: 23.820331, longitude: 90.422521 },
+];
 
-    const seededUsers = [];
-    for (const user of usersData) {
-      const hashedPassword = await bcrypt.hash(user.password, 12);
-      const res = await client.query(
-        'INSERT INTO users (email, password, role) VALUES ($1, $2, $3) RETURNING id, email, role',
-        [user.email, hashedPassword, user.role]
-      );
-      seededUsers.push(res.rows[0]);
+
+async function seed() {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        console.log('Deleting all existing data...');
+        await client.query('TRUNCATE users, contact_info, aid_requests, resources, assignments, matches RESTART IDENTITY CASCADE');
+
+        // Insert Users
+        const userMap = new Map();
+        for (const user of usersData) {
+            const hashedPassword = await bcrypt.hash(user.password, 12);
+            const res = await client.query(
+                'INSERT INTO users (email, password, role) VALUES ($1, $2, $3) RETURNING id',
+                [user.email, hashedPassword, user.role]
+            );
+            userMap.set(user.email, res.rows[0].id);
+            console.log(`Inserted user: ${user.email}`);
+        }
+
+        // Insert Contact Info
+        for (const info of contactInfoData) {
+            const userId = userMap.get(info.email);
+            await client.query(
+                'INSERT INTO contact_info (user_id, first_name, last_name, phone_no, street, city, state) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+                [userId, info.first_name, info.last_name, info.phone_no, info.street, info.city, info.state]
+            );
+            console.log(`Inserted contact info for: ${info.email}`);
+        }
+
+        // Insert Aid Requests
+        for (const req of aidRequestsData) {
+            const userId = userMap.get(req.email);
+            await client.query(
+                'INSERT INTO aid_requests (requester_id, aid_type, quantity, urgency, status, latitude, longitude) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+                [userId, req.aid_type, req.quantity, req.urgency, req.status || 'pending', req.latitude, req.longitude]
+            );
+            console.log(`Inserted aid request: ${req.aid_type}`);
+        }
+
+        // Insert Resources
+        for (const res of resourcesData) {
+            const userId = userMap.get(res.email);
+            await client.query(
+                'INSERT INTO resources (donor_id, resource_type, quantity, latitude, longitude) VALUES ($1, $2, $3, $4, $5)',
+                [userId, res.resource_type, res.quantity, res.latitude, res.longitude]
+            );
+            console.log(`Inserted resource: ${res.resource_type}`);
+        }
+
+        await client.query('COMMIT');
+        console.log('\nDatabase seeded successfully!');
+
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('\nError seeding database:', err);
+    } finally {
+        client.release();
+        pool.end();
     }
-    console.log(`${seededUsers.length} users seeded.`);
-    
-    // --- 2. Seed Contact Info ---
-    console.log('Seeding contact info...');
-    const contactsData = [
-        { user_id: seededUsers[0].id, first_name: 'Admin', last_name: 'User', phone_no: '01700000000', street: 'Admin Office', city: 'Dhaka', state: 'Dhaka' },
-        { user_id: seededUsers[1].id, first_name: 'Aria', last_name: 'Rahman', phone_no: '01711111111', street: '123 Gulshan Ave', city: 'Dhaka', state: 'Dhaka' },
-        { user_id: seededUsers[2].id, first_name: 'Benjir', last_name: 'Ahmed', phone_no: '01722222222', street: '456 Banani Rd', city: 'Dhaka', state: 'Dhaka' },
-        { user_id: seededUsers[3].id, first_name: 'Celia', last_name: 'Khan', phone_no: '01733333333', street: '789 Dhanmondi St', city: 'Dhaka', state: 'Dhaka' },
-        { user_id: seededUsers[4].id, first_name: 'David', last_name: 'Lee', phone_no: '01744444444', street: '101 Mirpur Rd', city: 'Dhaka', state: 'Dhaka' },
-        { user_id: seededUsers[5].id, first_name: 'Eva', last_name: 'Islam', phone_no: '01755555555', street: '202 Uttara Blvd', city: 'Dhaka', state: 'Dhaka' },
-    ];
+}
 
-    for (const contact of contactsData) {
-        await client.query(
-            'INSERT INTO contact_info (user_id, first_name, last_name, phone_no, street, city, state) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-            [contact.user_id, contact.first_name, contact.last_name, contact.phone_no, contact.street, contact.city, contact.state]
-        );
-    }
-    console.log(`${contactsData.length} contact info records seeded.`);
-
-    // --- 3. Seed Aid Requests ---
-    console.log('Seeding aid requests...');
-    const requestsData = [
-      { requester_id: seededUsers[1].id, aid_type: 'Clean Water', urgency: 'high', status: 'pending', latitude: 23.7939, longitude: 90.4063 },
-      { requester_id: seededUsers[2].id, aid_type: 'Non-perishable Food', urgency: 'medium', status: 'pending', latitude: 23.7746, longitude: 90.3932 },
-      { requester_id: seededUsers[1].id, aid_type: 'Medical Supplies', urgency: 'high', status: 'assigned', latitude: 23.7945, longitude: 90.4055 },
-         { requester_id: seededUsers[2].id, aid_type: 'Shelter', urgency: 'high', status: 'pending', latitude: 23.7947, longitude: 90.4060 },
-    ];
-    
-    const seededRequests = [];
-    for (const req of requestsData) {
-        const res = await client.query(
-            'INSERT INTO aid_requests (requester_id, aid_type, urgency, status, latitude, longitude) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-            [req.requester_id, req.aid_type, req.urgency, req.status, req.latitude, req.longitude]
-        );
-        seededRequests.push(res.rows[0]);
-    }
-    console.log(`${seededRequests.length} aid requests seeded.`);
-
-    // --- 4. Seed Resources ---
-    console.log('Seeding resources...');
-    const resourcesData = [
-      { donor_id: seededUsers[3].id, resource_type: 'Clean Water', quantity: 100, latitude: 23.7508, longitude: 90.3863 },
-      { donor_id: seededUsers[3].id, resource_type: 'Medical Supplies', quantity: 50, latitude: 23.7515, longitude: 90.3870 },
-            { donor_id: seededUsers[3].id, resource_type: 'Shelter', quantity: 1, latitude: 23.7515, longitude: 90.3870 },
-    ];
-
-    for (const res of resourcesData) {
-        await client.query(
-            'INSERT INTO resources (donor_id, resource_type, quantity, latitude, longitude) VALUES ($1, $2, $3, $4, $5)',
-            [res.donor_id, res.resource_type, res.quantity, res.latitude, res.longitude]
-        );
-    }
-    console.log(`${resourcesData.length} resources seeded.`);
-
-    // --- 5. Seed Assignments (for the 'assigned' request) ---
-    console.log('Seeding assignments...');
-    const adminId = seededUsers.find(u => u.role === 'admin').id;
-    const volunteerId = seededUsers.find(u => u.role === 'volunteer').id;
-    const assignedRequest = seededRequests.find(r => r.status === 'assigned');
-
-    if (assignedRequest) {
-        await client.query(
-            'INSERT INTO assignments (request_id, volunteer_id, assigned_by_admin_id) VALUES ($1, $2, $3)',
-            [assignedRequest.id, volunteerId, adminId]
-        );
-        console.log('1 assignment seeded.');
-    }
-
-
-    await client.query('COMMIT');
-    console.log('✅ Database seeding completed successfully!');
-  } catch (error) {
-    await client.query('ROLLBACK');
-    console.error('❌ Error seeding database:', error);
-  } finally {
-    client.release();
-    pool.end();
-  }
-};
-
-seedDatabase();
-
+seed();

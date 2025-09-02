@@ -40,4 +40,4 @@ router.get('/stats', getPlatformStats);
 router.route('/requests/:id')
     .patch(updateAidRequestByAdmin)
     .delete(deleteAidRequestbyadmin);
-// export default router;
+export default router;

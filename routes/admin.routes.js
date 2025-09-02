@@ -5,9 +5,10 @@ import {
     updateUserRole,
     getAidTypeSummary,
        updateRequestUrgency,
-    findMatchingResources, deleteAidRequest, getAllResources,
+    findMatchingResources, getAllResources,
     updateResourceByAdmin,
-    deleteResourceByAdmin,getPlatformStats,updateAidRequestByAdmin
+    deleteResourceByAdmin,getPlatformStats,updateAidRequestByAdmin,
+    deleteAidRequestbyadmin
 } from '../controller/admin.controller.js';
 import { protect, restrictTo } from '../middlewares/auth.middleware.js';
 
@@ -29,7 +30,6 @@ router.get('/requests/:id/matches', findMatchingResources);
 // New route to update request urgency
 router.patch('/requests/:id/urgency', updateRequestUrgency);
 
-router.delete('/requests/:id', deleteAidRequest);
 router.route('/resources')
     .get(getAllResources);
 
@@ -39,5 +39,5 @@ router.route('/resources/:id')
 router.get('/stats', getPlatformStats);
 router.route('/requests/:id')
     .patch(updateAidRequestByAdmin)
-    .delete(deleteAidRequest);
+    .delete(deleteAidRequestbyadmin);
 export default router;

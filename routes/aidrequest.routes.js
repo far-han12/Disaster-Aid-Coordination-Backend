@@ -14,8 +14,7 @@ const router = express.Router();
 router.get('/', getAidRequests);
 
 
-// --- All routes below are protected and require the user to be an 'aidrequester' ---
-
+// 
 // The role has been corrected from 'aidrequester' to 'aidrequester'
 router.post('/', protect, restrictTo('aidrequester'), createAidRequest);
 

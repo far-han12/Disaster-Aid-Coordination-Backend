@@ -178,7 +178,7 @@ export const updateRequestUrgency = async (req, res) => {
         res.status(500).json({ status: 'error', message: 'Server Error' });
     }
 };
-export const deleteAidRequest = async (req, res) => {
+export const deleteAidRequestbyadmin = async (req, res) => {
     try {
         const { id } = req.params;
         const result = await pool.query('DELETE FROM aid_requests WHERE id = $1', [id]);

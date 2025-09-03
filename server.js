@@ -15,8 +15,35 @@ import { createMatchesTable } from "./models/matches.model.js"; // 1. Import the
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middlewares
-app.use(cors());
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://disaster-aid-coordination-frontend.vercel.app",
+];
+
+const corsOptions = {
+  origin(origin, cb) {
+    if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+    return cb(new Error("Not allowed by CORS"));
+  },
+  credentials: true,
+  methods: ["GET","HEAD","PUT","PATCH","POST","DELETE","OPTIONS"],
+  allowedHeaders: ["Content-Type","Authorization","X-Requested-With"],
+};
+
+app.use(cors(corsOptions));
+
+// ✅ Handle all OPTIONS without a path pattern
+app.use((req, res, next) => {
+  if (req.method === "OPTIONS") {
+    res.header("Access-Control-Allow-Origin", req.headers.origin || "");
+    res.header("Vary", "Origin");
+    res.header("Access-Control-Allow-Credentials", "true");
+    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
+    res.header("Access-Control-Allow-Methods", "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS");
+    return res.sendStatus(204);
+  }
+  next();
+});
 app.use(express.json());
 
 // Routes

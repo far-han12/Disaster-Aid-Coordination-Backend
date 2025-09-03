@@ -32,6 +32,9 @@ app.use((err, req, res, next) => {
     message: err.message,
   });
 });
+app.get('/', (_req, res) =>
+  res.send('✅ Disaster Aid Coordination API. Try /api/v1 ')
+);
 
 
 app.listen(PORT, async () => {

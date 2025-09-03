@@ -8,6 +8,9 @@ import assignmentRouter from './assignment.routes.js';
 import matchRouter from './match.routes.js'; // 1. Import the new router
 
 const router = express.Router();
+router.get('/', (_req, res) => {
+  res.json({ ok: true, service: 'Disaster Aid API', version: 'v1' });
+});
 router.use('/auth', authRouter);
 router.use('/users', userRouter);
 router.use('/requests', aidRequestRouter);

@@ -80,13 +80,13 @@ export const getMyRequests = async (req, res) => {
 // @route   POST /api/v1/requests
 // @access  Private (Aid Requester)
 export const createAidRequest = async (req, res) => {
-    const { aid_type, urgency, latitude, longitude } = req.body;
+    const { aid_type, urgency, quantity,latitude, longitude } = req.body;
     const requester_id = req.user.id;
 
     try {
         const { rows } = await pool.query(
-            'INSERT INTO aid_requests (requester_id, aid_type, urgency, latitude, longitude) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-            [requester_id, aid_type, urgency, latitude, longitude]
+            'INSERT INTO aid_requests (requester_id, aid_type, urgency, quantity,latitude, longitude) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+            [requester_id, aid_type, urgency,quantity, latitude, longitude]
         );
         res.status(201).json({ status: 'success', data: rows[0] });
     } catch (err) {
@@ -98,30 +98,48 @@ export const createAidRequest = async (req, res) => {
 // @route   PATCH /api/v1/requests/:id
 // @access  Private (Requester - owner only)
 export const updateAidRequest = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { aid_type, urgency } = req.body;
-        const requesterId = req.user.id;
+  try {
+    const { id } = req.params;
+    let { aid_type, urgency, quantity } = req.body;
+    const requesterId = req.user.id;
 
-        // Security Check: Verify the user owns this request before updating
-        const ownerCheck = await pool.query('SELECT requester_id FROM aid_requests WHERE id = $1', [id]);
-        if (ownerCheck.rows.length === 0) {
-            return res.status(404).json({ status: 'fail', message: 'Aid request not found.' });
-        }
-        if (ownerCheck.rows[0].requester_id !== requesterId) {
-            return res.status(403).json({ status: 'fail', message: 'You are not authorized to update this request.' });
-        }
-
-        const { rows } = await pool.query(
-            'UPDATE aid_requests SET aid_type = $1, urgency = $2 WHERE id = $3 RETURNING *',
-            [aid_type, urgency, id]
-        );
-
-        res.status(200).json({ status: 'success', data: rows[0] });
-    } catch (err) {
-        res.status(500).json({ status: 'error', message: err.message });
+    // Ownership check
+    const ownerCheck = await pool.query(
+      'SELECT requester_id FROM aid_requests WHERE id = $1',
+      [id]
+    );
+    if (ownerCheck.rows.length === 0) {
+      return res.status(404).json({ status: 'fail', message: 'Aid request not found.' });
     }
+    if (String(ownerCheck.rows[0].requester_id) !== String(requesterId)) {
+      return res.status(403).json({ status: 'fail', message: 'You are not authorized to update this request.' });
+    }
+
+    // Optional basic validation
+    if (quantity !== undefined) {
+      const n = Number(quantity);
+      if (!Number.isFinite(n) || n < 1) {
+        return res.status(400).json({ status: 'fail', message: 'quantity must be a positive number' });
+      }
+      quantity = n;
+    }
+
+    const { rows } = await pool.query(
+      `UPDATE aid_requests
+         SET aid_type = $1,
+             urgency  = $2,
+             quantity = $3
+       WHERE id = $4
+       RETURNING *`,
+      [aid_type, urgency, quantity, id]
+    );
+
+    return res.status(200).json({ status: 'success', data: rows[0] });
+  } catch (err) {
+    return res.status(500).json({ status: 'error', message: err.message });
+  }
 };
+
 
 // @desc    Delete an aid request
 // @route   DELETE /api/v1/requests/:id

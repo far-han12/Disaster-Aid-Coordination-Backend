@@ -1,6 +1,5 @@
 import pool from '../config/db.js';
 
-// Function to create the assignments table
 export const createAssignmentsTable = async () => {
   const query = `
     CREATE TABLE IF NOT EXISTS assignments (
@@ -9,13 +8,15 @@ export const createAssignmentsTable = async () => {
       volunteer_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
       assigned_by_admin_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
       assignment_date TIMESTAMPTZ DEFAULT NOW(),
-      CONSTRAINT unique_assignment UNIQUE (request_id, volunteer_id)
+      quantity_assigned INTEGER NOT NULL DEFAULT 1
     );
   `;
   try {
     await pool.query(query);
     console.log('Assignments table created or already exists.');
-  } catch (err) {
+  } catch (err)
+  {
     console.error('Error creating assignments table:', err);
   }
 };
+
